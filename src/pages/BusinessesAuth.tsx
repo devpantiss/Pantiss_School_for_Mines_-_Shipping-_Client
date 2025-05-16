@@ -20,8 +20,7 @@ interface BusinessFormData {
   companyLogo: File | null;
   profilePic: File | null;
   location: string;
-  numberOfEmployees: string;
-  companyDescription: string;
+  numberOfEmployees: '0-10' | '10-50' | '50-100' | '100-500' | '500-1000' | '1000+' | '';  companyDescription: string;
   address: string;
   website: string;
 }
@@ -114,11 +113,11 @@ const BusinessAuth: React.FC = () => {
               key="signup"
               formData={{
                 ...formData,
-                numberOfEmployees: formData.numberOfEmployees ? formData.numberOfEmployees.toString() : undefined
+                numberOfEmployees: formData.numberOfEmployees ? formData.numberOfEmployees : ""
               }}
               updateFormData={(data) => updateFormData({
                 ...data,
-                numberOfEmployees: data.numberOfEmployees ? parseInt(data.numberOfEmployees as string, 10) : undefined
+                numberOfEmployees: data.numberOfEmployees ? data.numberOfEmployees : ""
               })}
               onNext={nextStep}
               onBack={() => setStep(0)}

@@ -1,7 +1,4 @@
 import React, { useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
@@ -17,26 +14,21 @@ interface BusinessFormData {
   companyLogo: File | null;
   profilePic: File | null;
   location: string;
-  numberOfEmployees: number;
+  numberOfEmployees: '0-10' | '10-50' | '50-100' | '100-500' | '500-1000' | '1000+' | '';
   companyDescription: string;
   address: string;
   website: string;
 }
 
-const signupSchema = z
-  .object({
-    recruiterName: z.string().min(2, 'Name must be at least 2 characters'),
-    email: z.string().email('Invalid email address'),
-    phone: z.string().regex(/^\d{10}$/, 'Phone number must be 10 digits'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
-    confirmPassword: z.string(),
-    emailOtp: z.string().length(6, 'Email OTP must be 6 digits'),
-    phoneOtp: z.string().length(6, 'Phone OTP must be 6 digits'),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'Passwords must match',
-    path: ['confirmPassword'],
-  });
+interface Errors {
+  recruiterName?: string;
+  email?: string;
+  phone?: string;
+  password?: string;
+  confirmPassword?: string;
+  emailOtp?: string;
+  phoneOtp?: string;
+}
 
 interface BusinessSignupFormProps {
   formData: BusinessFormData;
@@ -50,25 +42,76 @@ export const BusinessSignupForm: React.FC<BusinessSignupFormProps> = React.memo(
     const [emailOtpSent, setEmailOtpSent] = useState(false);
     const [phoneOtpSent, setPhoneOtpSent] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-
-    const {
-      control,
-      handleSubmit,
-      formState: { errors, isSubmitting },
-    } = useForm({
-      resolver: zodResolver(signupSchema),
-      defaultValues: {
-        recruiterName: formData.recruiterName,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password,
-        confirmPassword: formData.confirmPassword,
-        emailOtp: formData.emailOtp,
-        phoneOtp: formData.phoneOtp,
-      },
+    const [localFormData, setLocalFormData] = useState<Partial<BusinessFormData>>({
+      recruiterName: formData.recruiterName,
+      email: formData.email,
+      phone: formData.phone,
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+      emailOtp: formData.emailOtp,
+      phoneOtp: formData.phoneOtp,
     });
+    const [errors, setErrors] = useState<Errors>({});
+
+    const validateForm = (): boolean => {
+      const newErrors: Errors = {};
+      let isValid = true;
+
+      if (!localFormData.recruiterName || localFormData.recruiterName.length < 2) {
+        newErrors.recruiterName = 'Name must be at least 2 characters';
+        isValid = false;
+      }
+      if (!localFormData.email) {
+        newErrors.email = 'Email is required';
+        isValid = false;
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(localFormData.email)) {
+        newErrors.email = 'Invalid email address';
+        isValid = false;
+      }
+      if (!localFormData.phone) {
+        newErrors.phone = 'Phone number is required';
+        isValid = false;
+      } else if (!/^\d{10}$/.test(localFormData.phone)) {
+        newErrors.phone = 'Phone number must be 10 digits';
+        isValid = false;
+      }
+      if (!localFormData.password) {
+        newErrors.password = 'Password is required';
+        isValid = false;
+      } else if (localFormData.password.length < 6) {
+        newErrors.password = 'Password must be at least 6 characters';
+        isValid = false;
+      }
+      if (!localFormData.confirmPassword) {
+        newErrors.confirmPassword = 'Confirm password is required';
+        isValid = false;
+      } else if (localFormData.password !== localFormData.confirmPassword) {
+        newErrors.confirmPassword = 'Passwords must match';
+        isValid = false;
+      }
+      if (emailOtpSent && (!localFormData.emailOtp || localFormData.emailOtp.length !== 6)) {
+        newErrors.emailOtp = 'Email OTP must be 6 digits';
+        isValid = false;
+      }
+      if (phoneOtpSent && (!localFormData.phoneOtp || localFormData.phoneOtp.length !== 6)) {
+        newErrors.phoneOtp = 'Phone OTP must be 6 digits';
+        isValid = false;
+      }
+
+      setErrors(newErrors);
+      return isValid;
+    };
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = e.target;
+      setLocalFormData((prev) => ({ ...prev, [name]: value }));
+    };
 
     const handleSendEmailOtp = async () => {
+      if (!localFormData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(localFormData.email)) {
+        setErrors((prev) => ({ ...prev, email: 'Invalid email address' }));
+        return;
+      }
       setIsLoading(true);
       try {
         await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -84,24 +127,26 @@ export const BusinessSignupForm: React.FC<BusinessSignupFormProps> = React.memo(
     };
 
     const handleSendPhoneOtp = async () => {
+      if (!localFormData.phone || !/^\d{10}$/.test(localFormData.phone)) {
+        setErrors((prev) => ({ ...prev, phone: 'Phone number must be 10 digits' }));
+        return;
+      }
       setIsLoading(true);
       try {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         setPhoneOtpSent(true);
-        toast.success('Phone OTP sent!', {
-          style: { background: '#1f2937', color: '#e5e7eb' },
-        });
+        toast.success('Phone OTP sent!', { style: { background: '#1f2937', color: '#e5e7eb' } });
       } catch {
-        toast.error('Failed to send Phone OTP.', {
-          style: { background: '#1f2937', color: '#e5e7eb' },
-        });
+        toast.error('Failed to send Phone OTP.', { style: { background: '#1f2937', color: '#e5e7eb' } });
       } finally {
         setIsLoading(false);
       }
     };
 
-    const onSubmit = (data: Partial<BusinessFormData>) => {
-      updateFormData(data);
+    const onSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!validateForm()) return;
+      updateFormData(localFormData);
       onNext();
     };
 
@@ -119,29 +164,25 @@ export const BusinessSignupForm: React.FC<BusinessSignupFormProps> = React.memo(
         >
           Business Signup
         </h2>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={onSubmit} className="space-y-6">
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-200 tracking-wide">
               Recruiter Name
             </label>
-            <Controller
+            <input
               name="recruiterName"
-              control={control}
-              render={({ field }) => (
-                <input
-                  {...field}
-                  className={`block w-full px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
-                    errors.recruiterName ? 'border-red-500' : 'border-purple-600/30'
-                  } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
-                  aria-invalid={!!errors.recruiterName}
-                  aria-describedby="recruiterName-error"
-                  placeholder="Enter your name"
-                />
-              )}
+              value={localFormData.recruiterName || ''}
+              onChange={handleInputChange}
+              className={`block w-full px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
+                errors.recruiterName ? 'border-red-500' : 'border-purple-600/30'
+              } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
+              aria-invalid={!!errors.recruiterName}
+              aria-describedby="recruiterName-error"
+              placeholder="Enter your name"
             />
             {errors.recruiterName && (
               <p id="recruiterName-error" className="text-sm text-red-500">
-                {errors.recruiterName.message}
+                {errors.recruiterName}
               </p>
             )}
           </div>
@@ -151,21 +192,17 @@ export const BusinessSignupForm: React.FC<BusinessSignupFormProps> = React.memo(
             </label>
             {!emailOtpSent ? (
               <div className="flex space-x-2">
-                <Controller
+                <input
+                  type="email"
                   name="email"
-                  control={control}
-                  render={({ field }) => (
-                    <input
-                      {...field}
-                      type="email"
-                      className={`flex-1 px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
-                        errors.email ? 'border-red-500' : 'border-purple-600/30'
-                      } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
-                      aria-invalid={!!errors.email}
-                      aria-describedby="email-error"
-                      placeholder="Enter your email"
-                    />
-                  )}
+                  value={localFormData.email || ''}
+                  onChange={handleInputChange}
+                  className={`flex-1 px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
+                    errors.email ? 'border-red-500' : 'border-purple-600/30'
+                  } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
+                  aria-invalid={!!errors.email}
+                  aria-describedby="email-error"
+                  placeholder="Enter your email"
                 />
                 <button
                   type="button"
@@ -177,30 +214,26 @@ export const BusinessSignupForm: React.FC<BusinessSignupFormProps> = React.memo(
                 </button>
               </div>
             ) : (
-              <Controller
+              <input
                 name="emailOtp"
-                control={control}
-                render={({ field }) => (
-                  <input
-                    {...field}
-                    placeholder="Enter Email OTP"
-                    className={`block w-full px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
-                      errors.emailOtp ? 'border-red-500' : 'border-purple-600/30'
-                    } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
-                    aria-invalid={!!errors.emailOtp}
-                    aria-describedby="emailOtp-error"
-                  />
-                )}
+                value={localFormData.emailOtp || ''}
+                onChange={handleInputChange}
+                placeholder="Enter Email OTP"
+                className={`block w-full px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
+                  errors.emailOtp ? 'border-red-500' : 'border-purple-600/30'
+                } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
+                aria-invalid={!!errors.emailOtp}
+                aria-describedby="emailOtp-error"
               />
             )}
             {errors.email && (
               <p id="email-error" className="text-sm text-red-500">
-                {errors.email.message}
+                {errors.email}
               </p>
             )}
             {errors.emailOtp && (
               <p id="emailOtp-error" className="text-sm text-red-500">
-                {errors.emailOtp.message}
+                {errors.emailOtp}
               </p>
             )}
           </div>
@@ -210,21 +243,17 @@ export const BusinessSignupForm: React.FC<BusinessSignupFormProps> = React.memo(
             </label>
             {!phoneOtpSent ? (
               <div className="flex space-x-2">
-                <Controller
+                <input
+                  type="tel"
                   name="phone"
-                  control={control}
-                  render={({ field }) => (
-                    <input
-                      {...field}
-                      type="tel"
-                      className={`flex-1 px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
-                        errors.phone ? 'border-red-500' : 'border-purple-600/30'
-                      } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
-                      aria-invalid={!!errors.phone}
-                      aria-describedby="phone-error"
-                      placeholder="Enter your phone number"
-                    />
-                  )}
+                  value={localFormData.phone || ''}
+                  onChange={handleInputChange}
+                  className={`flex-1 px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
+                    errors.phone ? 'border-red-500' : 'border-purple-600/30'
+                  } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
+                  aria-invalid={!!errors.phone}
+                  aria-describedby="phone-error"
+                  placeholder="Enter your phone number"
                 />
                 <button
                   type="button"
@@ -236,30 +265,26 @@ export const BusinessSignupForm: React.FC<BusinessSignupFormProps> = React.memo(
                 </button>
               </div>
             ) : (
-              <Controller
+              <input
                 name="phoneOtp"
-                control={control}
-                render={({ field }) => (
-                  <input
-                    {...field}
-                    placeholder="Enter Phone OTP"
-                    className={`block w-full px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
-                      errors.phoneOtp ? 'border-red-500' : 'border-purple-600/30'
-                    } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
-                    aria-invalid={!!errors.phoneOtp}
-                    aria-describedby="phoneOtp-error"
-                  />
-                )}
+                value={localFormData.phoneOtp || ''}
+                onChange={handleInputChange}
+                placeholder="Enter Phone OTP"
+                className={`block w-full px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
+                  errors.phoneOtp ? 'border-red-500' : 'border-purple-600/30'
+                } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
+                aria-invalid={!!errors.phoneOtp}
+                aria-describedby="phoneOtp-error"
               />
             )}
             {errors.phone && (
               <p id="phone-error" className="text-sm text-red-500">
-                {errors.phone.message}
+                {errors.phone}
               </p>
             )}
             {errors.phoneOtp && (
               <p id="phoneOtp-error" className="text-sm text-red-500">
-                {errors.phoneOtp.message}
+                {errors.phoneOtp}
               </p>
             )}
           </div>
@@ -267,25 +292,21 @@ export const BusinessSignupForm: React.FC<BusinessSignupFormProps> = React.memo(
             <label className="block text-sm font-semibold text-gray-200 tracking-wide">
               Password
             </label>
-            <Controller
+            <input
+              type="password"
               name="password"
-              control={control}
-              render={({ field }) => (
-                <input
-                  {...field}
-                  type="password"
-                  className={`block w-full px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
-                    errors.password ? 'border-red-500' : 'border-purple-600/30'
-                  } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
-                  aria-invalid={!!errors.password}
-                  aria-describedby="password-error"
-                  placeholder="Enter your password"
-                />
-              )}
+              value={localFormData.password || ''}
+              onChange={handleInputChange}
+              className={`block w-full px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
+                errors.password ? 'border-red-500' : 'border-purple-600/30'
+              } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
+              aria-invalid={!!errors.password}
+              aria-describedby="password-error"
+              placeholder="Enter your password"
             />
             {errors.password && (
               <p id="password-error" className="text-sm text-red-500">
-                {errors.password.message}
+                {errors.password}
               </p>
             )}
           </div>
@@ -293,25 +314,21 @@ export const BusinessSignupForm: React.FC<BusinessSignupFormProps> = React.memo(
             <label className="block text-sm font-semibold text-gray-200 tracking-wide">
               Confirm Password
             </label>
-            <Controller
+            <input
+              type="password"
               name="confirmPassword"
-              control={control}
-              render={({ field }) => (
-                <input
-                  {...field}
-                  type="password"
-                  className={`block w-full px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
-                    errors.confirmPassword ? 'border-red-500' : 'border-purple-600/30'
-                  } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
-                  aria-invalid={!!errors.confirmPassword}
-                  aria-describedby="confirmPassword-error"
-                  placeholder="Confirm your password"
-                />
-              )}
+              value={localFormData.confirmPassword || ''}
+              onChange={handleInputChange}
+              className={`block w-full px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
+                errors.confirmPassword ? 'border-red-500' : 'border-purple-600/30'
+              } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
+              aria-invalid={!!errors.confirmPassword}
+              aria-describedby="confirmPassword-error"
+              placeholder="Confirm your password"
             />
             {errors.confirmPassword && (
               <p id="confirmPassword-error" className="text-sm text-red-500">
-                {errors.confirmPassword.message}
+                {errors.confirmPassword}
               </p>
             )}
           </div>
@@ -325,10 +342,10 @@ export const BusinessSignupForm: React.FC<BusinessSignupFormProps> = React.memo(
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isLoading}
               className="flex-1 bg-gradient-to-r from-purple-600 to-purple-800 text-white py-3 px-4 rounded-lg hover:bg-purple-700 hover:-rotate-1 disabled:opacity-50 shadow-[0_0_12px_#7c3aed] hover:shadow-[0_0_20px_#7c3aed] focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all duration-500"
             >
-              {isSubmitting ? 'Processing...' : 'Next'}
+              Next
             </button>
           </div>
         </form>

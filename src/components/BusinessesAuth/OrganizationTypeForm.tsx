@@ -1,7 +1,4 @@
-import React from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { FaBuilding, FaUser } from 'react-icons/fa';
 
@@ -18,17 +15,15 @@ interface BusinessFormData {
   companyLogo: File | null;
   profilePic: File | null;
   location: string;
-  numberOfEmployees: string;
+  numberOfEmployees: '0-10' | '10-50' | '50-100' | '100-500' | '500-1000' | '1000+' | '';
   companyDescription: string;
   address: string;
   website: string;
 }
 
-const organizationTypeSchema = z.object({
-  organizationType: z.enum(['organization', 'nano-contractor'], {
-    errorMap: (_issue, _ctx) => ({ message: 'Organization type is required' }),
-  }),
-});
+interface Errors {
+  organizationType?: string;
+}
 
 interface OrganizationTypeFormProps {
   formData: BusinessFormData;
@@ -39,19 +34,33 @@ interface OrganizationTypeFormProps {
 
 export const OrganizationTypeForm: React.FC<OrganizationTypeFormProps> = React.memo(
   ({ formData, updateFormData, onNext, onBack }) => {
-    const {
-      control,
-      handleSubmit,
-      formState: { errors, isSubmitting },
-    } = useForm<BusinessFormData>({
-      resolver: zodResolver(organizationTypeSchema),
-      defaultValues: {
-        organizationType: formData.organizationType || '',
-      },
-    });
+    const [organizationType, setOrganizationType] = useState<string>(formData.organizationType || '');
+    const [errors, setErrors] = useState<Errors>({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const onSubmit = (data: Partial<BusinessFormData>) => {
-      updateFormData(data);
+    const validateForm = (): boolean => {
+      const newErrors: Errors = {};
+      let isValid = true;
+
+      if (!organizationType || !['organization', 'nano-contractor'].includes(organizationType)) {
+        newErrors.organizationType = 'Organization type is required';
+        isValid = false;
+      }
+
+      setErrors(newErrors);
+      return isValid;
+    };
+
+    const handleTypeChange = (type: 'organization' | 'nano-contractor') => {
+      setOrganizationType(type);
+    };
+
+    const onSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!validateForm()) return;
+      setIsSubmitting(true);
+      updateFormData({ organizationType });
+      setIsSubmitting(false);
       onNext();
     };
 
@@ -69,78 +78,76 @@ export const OrganizationTypeForm: React.FC<OrganizationTypeFormProps> = React.m
         >
           Organization Type
         </h2>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={onSubmit} className="space-y-6">
           <div className="space-y-4">
             <label className="block text-sm font-semibold text-gray-200 tracking-wide">
               Select Organization Type
             </label>
-            <Controller
-              name="organizationType"
-              control={control}
-              render={({ field }) => (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => field.onChange('organization')}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        field.onChange('organization');
-                      }
-                    }}
-                    className={`p-4 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 cursor-pointer transition-all duration-500 ${
-                      field.value === 'organization'
-                        ? 'border-purple-600 shadow-[0_0_15px_#7c3aed] scale-105'
-                        : 'border-purple-600/30 hover:shadow-[0_0_10px_#7c3aed] hover:scale-105'
-                    } ${errors.organizationType ? 'border-red-500' : ''}`}
-                    aria-invalid={!!errors.organizationType}
-                    aria-describedby="organizationType-error"
-                  >
-                    <FaBuilding
-                      className={`h-8 w-8 mx-auto mb-2 text-purple-400 ${
-                        field.value === 'organization' ? 'shadow-[0_0_5px_#7c3aed]' : 'hover:shadow-[0_0_5px_#7c3aed]'
-                      } transition-shadow duration-500`}
-                      aria-hidden="true"
-                    />
-                    <h3 className="text-lg font-semibold text-center">Organization</h3>
-                    <p className="text-sm text-gray-400 text-center">
-                      A business entity with multiple employees and structured operations.
-                    </p>
-                  </div>
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => field.onChange('nano-contractor')}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        field.onChange('nano-contractor');
-                      }
-                    }}
-                    className={`p-4 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 cursor-pointer transition-all duration-500 ${
-                      field.value === 'nano-contractor'
-                        ? 'border-purple-600 shadow-[0_0_15px_#7c3aed] scale-105'
-                        : 'border-purple-600/30 hover:shadow-[0_0_10px_#7c3aed] hover:scale-105'
-                    } ${errors.organizationType ? 'border-red-500' : ''}`}
-                    aria-invalid={!!errors.organizationType}
-                    aria-describedby="organizationType-error"
-                  >
-                    <FaUser
-                      className={`h-8 w-8 mx-auto mb-2 text-purple-400 ${
-                        field.value === 'nano-contractor' ? 'shadow-[0_0_5px_#7c3aed]' : 'hover:shadow-[0_0_5px_#7c3aed]'
-                      } transition-shadow duration-500`}
-                      aria-hidden="true"
-                    />
-                    <h3 className="text-lg font-semibold text-center">Nano-Contractor</h3>
-                    <p className="text-sm text-gray-400 text-center">
-                      An individual or small-scale contractor operating independently.
-                    </p>
-                  </div>
-                </div>
-              )}
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => handleTypeChange('organization')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    handleTypeChange('organization');
+                  }
+                }}
+                className={`p-4 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 cursor-pointer transition-all duration-500 ${
+                  organizationType === 'organization'
+                    ? 'border-purple-600 shadow-[0_0_15px_#7c3aed] scale-105'
+                    : 'border-purple-600/30 hover:shadow-[0_0_10px_#7c3aed] hover:scale-105'
+                } ${errors.organizationType ? 'border-red-500' : ''}`}
+                aria-invalid={!!errors.organizationType}
+                aria-describedby="organizationType-error"
+              >
+                <FaBuilding
+                  className={`h-8 w-8 mx-auto mb-2 text-purple-400 ${
+                    organizationType === 'organization'
+                      ? 'shadow-[0_0_5px_#7c3aed]'
+                      : 'hover:shadow-[0_0_5px_#7c3aed]'
+                  } transition-shadow duration-500`}
+                  aria-hidden="true"
+                />
+                <h3 className="text-lg font-semibold text-center">Organization</h3>
+                <p className="text-sm text-gray-400 text-center">
+                  A business entity with multiple employees and structured operations.
+                </p>
+              </div>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => handleTypeChange('nano-contractor')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    handleTypeChange('nano-contractor');
+                  }
+                }}
+                className={`p-4 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 cursor-pointer transition-all duration-500 ${
+                  organizationType === 'nano-contractor'
+                    ? 'border-purple-600 shadow-[0_0_15px_#7c3aed] scale-105'
+                    : 'border-purple-600/30 hover:shadow-[0_0_10px_#7c3aed] hover:scale-105'
+                } ${errors.organizationType ? 'border-red-500' : ''}`}
+                aria-invalid={!!errors.organizationType}
+                aria-describedby="organizationType-error"
+              >
+                <FaUser
+                  className={`h-8 w-8 mx-auto mb-2 text-purple-400 ${
+                    organizationType === 'nano-contractor'
+                      ? 'shadow-[0_0_5px_#7c3aed]'
+                      : 'hover:shadow-[0_0_5px_#7c3aed]'
+                  } transition-shadow duration-500`}
+                  aria-hidden="true"
+                />
+                <h3 className="text-lg font-semibold text-center">Nano-Contractor</h3>
+                <p className="text-sm text-gray-400 text-center">
+                  An individual or small-scale contractor operating independently.
+                </p>
+              </div>
+            </div>
             {errors.organizationType && (
               <p id="organizationType-error" className="text-sm text-red-500">
-                {errors.organizationType.message}
+                {errors.organizationType}
               </p>
             )}
           </div>

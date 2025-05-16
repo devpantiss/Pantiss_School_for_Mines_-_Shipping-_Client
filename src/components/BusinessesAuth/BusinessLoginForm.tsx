@@ -1,32 +1,62 @@
-import React from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
 
 interface BusinessLoginFormProps {
   onSignupClick: () => void;
   onSuccess: () => void;
 }
 
+interface FormData {
+  email: string;
+  password: string;
+}
+
+interface Errors {
+  email?: string;
+  password?: string;
+}
+
 export const BusinessLoginForm: React.FC<BusinessLoginFormProps> = React.memo(
   ({ onSignupClick, onSuccess }) => {
-    const {
-      control,
-      handleSubmit,
-      formState: { errors, isSubmitting },
-    } = useForm({
-      resolver: zodResolver(loginSchema),
-      defaultValues: { email: '', password: '' },
-    });
+    const [formData, setFormData] = useState<FormData>({ email: '', password: '' });
+    const [errors, setErrors] = useState<Errors>({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const onSubmit = async () => {
+    const validateForm = (): boolean => {
+      const newErrors: Errors = {};
+      let isValid = true;
+
+      if (!formData.email) {
+        newErrors.email = 'Email is required';
+        isValid = false;
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        newErrors.email = 'Invalid email address';
+        isValid = false;
+      }
+
+      if (!formData.password) {
+        newErrors.password = 'Password is required';
+        isValid = false;
+      } else if (formData.password.length < 6) {
+        newErrors.password = 'Password must be at least 6 characters';
+        isValid = false;
+      }
+
+      setErrors(newErrors);
+      return isValid;
+    };
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = e.target;
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const onSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!validateForm()) return;
+
+      setIsSubmitting(true);
       try {
         toast.loading('Logging in...', { style: { background: '#1f2937', color: '#e5e7eb' } });
         await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -38,6 +68,8 @@ export const BusinessLoginForm: React.FC<BusinessLoginFormProps> = React.memo(
         toast.error('Login failed. Please try again.', {
           style: { background: '#1f2937', color: '#e5e7eb' },
         });
+      } finally {
+        setIsSubmitting(false);
       }
     };
 
@@ -55,30 +87,26 @@ export const BusinessLoginForm: React.FC<BusinessLoginFormProps> = React.memo(
         >
           Business Login
         </h2>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={onSubmit} className="space-y-6">
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-200 tracking-wide">
               Email
             </label>
-            <Controller
+            <input
+              type="email"
               name="email"
-              control={control}
-              render={({ field }) => (
-                <input
-                  {...field}
-                  type="email"
-                  className={`block w-full px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
-                    errors.email ? 'border-red-500' : 'border-purple-600/30'
-                  } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
-                  aria-invalid={!!errors.email}
-                  aria-describedby="email-error"
-                  placeholder="Enter your email"
-                />
-              )}
+              value={formData.email}
+              onChange={handleInputChange}
+              className={`block w-full px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
+                errors.email ? 'border-red-500' : 'border-purple-600/30'
+              } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
+              aria-invalid={!!errors.email}
+              aria-describedby="email-error"
+              placeholder="Enter your email"
             />
             {errors.email && (
               <p id="email-error" className="text-sm text-red-500">
-                {errors.email.message}
+                {errors.email}
               </p>
             )}
           </div>
@@ -86,25 +114,21 @@ export const BusinessLoginForm: React.FC<BusinessLoginFormProps> = React.memo(
             <label className="block text-sm font-semibold text-gray-200 tracking-wide">
               Password
             </label>
-            <Controller
+            <input
+              type="password"
               name="password"
-              control={control}
-              render={({ field }) => (
-                <input
-                  {...field}
-                  type="password"
-                  className={`block w-full px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
-                    errors.password ? 'border-red-500' : 'border-purple-600/30'
-                  } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
-                  aria-invalid={!!errors.password}
-                  aria-describedby="password-error"
-                  placeholder="Enter your password"
-                />
-              )}
+              value={formData.password}
+              onChange={handleInputChange}
+              className={`block w-full px-4 py-2 rounded-lg border bg-gradient-to-r from-gray-800 to-gray-900 text-gray-200 placeholder-gray-400 ${
+                errors.password ? 'border-red-500' : 'border-purple-600/30'
+              } shadow-sm focus:border-purple-600 focus:ring-purple-600 hover:shadow-[0_0_8px_#7c3aed] transition-all duration-500`}
+              aria-invalid={!!errors.password}
+              aria-describedby="password-error"
+              placeholder="Enter your password"
             />
             {errors.password && (
               <p id="password-error" className="text-sm text-red-500">
-                {errors.password.message}
+                {errors.password}
               </p>
             )}
           </div>
